@@ -1,0 +1,21 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: corelia
+      POSTGRES_PASSWORD: corelia
+      POSTGRES_DB: corelia
+    ports:
+      # 5433 en el host: en esta maquina el 5432 ya esta ocupado por un
+      # PostgreSQL nativo. Ajustar DATABASE_URL en .env si se cambia este puerto.
+      - "5433:5432"
+    volumes:
+      - corelia_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U corelia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  corelia_pgdata:

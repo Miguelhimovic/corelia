@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: Depends(...) como default de argumento es el patron idiomatico de FastAPI, no un bug.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

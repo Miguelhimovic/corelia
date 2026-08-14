@@ -1,0 +1,29 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Permisos locales de Claude Code (por maquina/usuario, no compartido)
+.claude/settings.local.json
+
+# Uploads locales de documentos (RAG) — nunca versionar contenido de clientes
+/uploads/
+
+# Node (si /web usa un bundler)
+node_modules/

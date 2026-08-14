@@ -1,0 +1,28 @@
+name: tests
+on: [push]
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: corelia
+          POSTGRES_PASSWORD: corelia
+          POSTGRES_DB: corelia
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U corelia"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://corelia:corelia@localhost:5432/corelia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest tests/ -q
