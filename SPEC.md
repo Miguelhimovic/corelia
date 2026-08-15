@@ -28,6 +28,11 @@ NEW → DISCOVERING (identificar intención + recolectar location/budget/bedroom
 - **Campos obligatorios antes de PROPERTY_SEARCH:** location, budget_max, bedrooms, purpose.
 - **Significado de `score` (0-100):** 40% completitud de datos + 30% confianza de intención + 30% responsividad/engagement. Fórmula simplificada para MVP, se refina con datos reales post-lanzamiento.
 - **Cambios de `stage`:** siguen exactamente las transiciones de la sección 2.
+- **Classifier determinístico vs. LLM (CLAUDE.md principio 1):** reglas determinísticas (keyword/regex sobre el mensaje normalizado) se aplican SOLO para detectar `human_request`, `cancel` y `not_interested` a partir de frases literales cercanas a "hablar con una persona/asesor", "cancelar/reagendar cita", "ya no me interesa/no gracias". Cualquier mensaje que no matchee esas reglas —y en particular todo lo que requiera extraer `location/budget_max/bedrooms/purpose` de lenguaje natural— pasa siempre por el LLM (sección 3). El LLM se invoca en cada mensaje entrante que no matchea una regla determinística; sin caché de respuestas en MVP. El prompt de extracción vive en el código de `agent_engine` (no hay archivo externo de prompts pre-redactados para esta pieza).
+- **Contador de búsquedas vacías:** vive en `ConversationState` (campo `empty_search_count: int`, default 0). Se incrementa en cada `results_empty` (sección 2). Se resetea a 0 en cuanto el usuario cambia cualquiera de los 4 criterios de búsqueda (nueva vuelta de `PROPERTY_SEARCH` = intento nuevo, no continuación del anterior).
+- **Timeout de "no respuesta" (regla generalizada):** la regla de "2 recordatorios sin respuesta en el mismo estado → `stage=NURTURE`" (ver arriba) no aplica solo a `DISCOVERING` — aplica a cualquier estado activo que esté esperando una respuesta del usuario (incluye `PRESENTING` sin selección de propiedad, `SCHEDULING` sin confirmación de horario). Contador en `ConversationState.no_response_count`; se resetea a 0 en cada transición de estado (cada estado nuevo empieza su propio conteo de recordatorios).
+- **Salida de `NURTURE`:** no hay reactivación automática en MVP (el Follow-up Agent que reactivaría proactivamente es Fase 2/3, fuera de alcance — ver BITACORA.md sección 7). Si el usuario envía cualquier mensaje nuevo estando en `NURTURE`, la transición es `NURTURE → DISCOVERING` y se retoma el flujo normal desde ahí.
+- **"Cancelar" sin cita agendada:** la línea de arriba ("Quiere cancelar: si hay cita agendada, llamar `cancel_meeting`; si es 'ya no me interesa' en general, `stage=LOST`") cubre los dos casos donde la intención es inequívoca. Cuando el intent detectado es `cancel` pero NO hay cita agendada y el mensaje no es un opt-out explícito ("ya no me interesa"/"no gracias"), no se asume `stage=LOST`: cancelar algo que no existe todavía es una señal de confusión o de pregunta fuera de flujo, no necesariamente pérdida de interés — se trata igual que cualquier otra pregunta no cubierta por los slots (ver bullet "Pregunta fuera del flujo" arriba) y ofrece handoff (`HUMAN_REQUEST`), nunca `LOST` automático.
 
 ---
 
@@ -43,12 +48,15 @@ DISCOVERING → HANDOFF          : human_request (en cualquier punto, máxima pr
 DISCOVERING → NURTURE          : no_response tras 2 recordatorios
 QUALIFYING → PROPERTY_SEARCH   : automático al entrar al estado (disparado por el sistema, no por el usuario)
 PROPERTY_SEARCH → PRESENTING   : results_found (>0 propiedades)
-PROPERTY_SEARCH → DISCOVERING  : results_empty (una vuelta para ajustar criterio; 2 búsquedas vacías seguidas → HANDOFF)
+PROPERTY_SEARCH → DISCOVERING  : results_empty (una vuelta para ajustar criterio; 2 búsquedas vacías seguidas → HANDOFF; contador en ConversationState.empty_search_count, ver sección 1)
 PRESENTING → SCHEDULING        : user_selects_property o wants_visit
 PRESENTING → HANDOFF           : human_request
+PRESENTING → NURTURE           : no_response tras 2 recordatorios sin selección (ver regla generalizada, sección 1)
 SCHEDULING → BOOKED            : meeting_confirmed (éxito del tool de Calendar)
 SCHEDULING → HANDOFF           : calendar_error o human_request
+SCHEDULING → NURTURE           : no_response tras 2 recordatorios sin confirmación de horario
 BOOKED → HANDOFF               : usuario pide cambios más allá de reagendar simple, o cancelación
+NURTURE → DISCOVERING          : el usuario envía cualquier mensaje nuevo (sin reactivación automática en MVP, ver sección 1)
 * → LOST                       : opt-out explícito ("no me interesa")
 * → HANDOFF                    : human_request explícito (se evalúa antes que cualquier otra transición)
 ```
@@ -76,6 +84,8 @@ BOOKED → HANDOFF               : usuario pide cambios más allá de reagendar 
 - Campos ausentes se devuelven como `null` explícito, nunca se omite la clave.
 - `confidence < 0.5` → forzar `requires_clarification=true` y hacer una pregunta aclaratoria en vez de avanzar el state machine.
 - JSON malformado o campos extra → validar con Pydantic; si falla, reintentar una vez con instrucción más estricta; si falla la segunda vez, escalar a HANDOFF.
+- `confidence` es un único float global por extracción (no hay confidence por slot individual). El criterio de "enough_data" de la sección 1 (`confidence ≥ 0.7` para location+budget_max+bedrooms+purpose) se evalúa contra ese mismo valor global, no contra un promedio ni un mínimo por campo.
+- Falla de Claude API durante la extracción (sección 7): reintento único con backoff corto; si persiste, responder mensaje de problema técnico + `handoff_human` — mismo comportamiento que cualquier otra falla de Claude API.
 
 ---
 
@@ -123,7 +133,8 @@ Tenant (id fijo en MVP)
   │         ubicación, score, stage, último_contacto, próximo_contacto)
   │     ├── Conversation (canal: whatsapp|web, lead_id)
   │     │     ├── Message (conversation_id, role, content, timestamp)
-  │     │     └── ConversationState (conversation_id, current_state, last_transition_at)
+  │     │     └── ConversationState (conversation_id, current_state, last_transition_at,
+  │     │                            empty_search_count, no_response_count)
   │     ├── Appointment (lead_id, start_datetime, duration_minutes, status, calendar_event_id)
   │     ├── ToolExecution (lead_id, tool_name, input, output, status, timestamp)
   │     └── HumanHandoff (lead_id, reason, summary, assigned_to, status, created_at)
@@ -215,7 +226,7 @@ Trigger (human_request, error irrecuperable, 2 búsquedas vacías, etc.)
     state_after: HANDOFF   # fuera de alcance del flujo, no hay FAQ en MVP
 ```
 
-Empezar con al menos 3-5 golden conversations por rama del state machine antes de considerar el flujo "terminado".
+Empezar con al menos 3-5 golden conversations por rama del state machine antes de considerar el flujo "terminado". **Definición de "rama":** cada transición nombrada individualmente en la tabla de la sección 2 (cada línea `Estado → Estado : evento`) cuenta como una rama propia — no cada camino end-to-end completo. Ej. `DISCOVERING → HANDOFF : human_request` es una rama; `PROPERTY_SEARCH → DISCOVERING : results_empty` es otra.
 
 ---
 

@@ -1,6 +1,11 @@
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# migrations/ es codigo autogenerado por `alembic revision --autogenerate`
+# (Alembic, no el equipo, decide su estilo) -- excluirlo evita que cada
+# migracion nueva acumule errores de lint que no son responsabilidad de
+# quien la genera.
+exclude = ["migrations/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

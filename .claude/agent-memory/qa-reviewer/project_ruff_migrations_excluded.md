@@ -1,12 +1,17 @@
 ---
 name: project-ruff-migrations-not-excluded
-description: ruff check . falla con 18 errores en migrations/ (env.py + archivos autogenerados) desde el commit inicial del Día 1 — no bloquea CI porque el workflow no corre ruff
+description: RESUELTO 2026-08-14 (re-revisión Fase 2) — pyproject.toml ahora excluye migrations/; ruff check . limpio. Conservar como referencia de vigilancia (regresión posible si alguien quita el exclude o corre ruff pasando migrations/ explícito como path)
 metadata:
   type: project
 ---
 
-`pyproject.toml` (`[tool.ruff]`) no excluye `migrations/` del linting. `ruff check .` falla consistentemente con 18 errores (import order I001, línea larga E501, UP035) en `migrations/env.py` y en el archivo de migración autogenerado por Alembic. Confirmado con `git stash` que esto existe desde el commit inicial del Día 1 (af65add), no es una regresión introducida en cambios posteriores.
+**Estado: RESUELTO.** `pyproject.toml` (`[tool.ruff]`) ahora tiene `exclude = ["migrations/"]`. Verificado empíricamente en la re-revisión de Fase 2 (2026-08-14): `ruff check .` desde la raíz del repo → "All checks passed!", 0 errores.
 
-**Por qué importa:** `.github/workflows/test.yml` solo corre `pytest tests/ -q`, no corre `ruff check .` — así que este problema nunca se ve en CI ni bloquea un merge, pero si algún agente reporta "todo en verde" basándose en CI, no está viendo este gap. CLAUDE.md lista `ruff check .` como comando estándar del proyecto.
+**Nota de verificación importante:** `ruff check migrations/` (pasando el directorio explícito como argumento) SIGUE mostrando los 24 errores de siempre — es comportamiento esperado de ruff, `exclude` en `pyproject.toml` no aplica cuando el path se pasa explícito en el CLI (solo aplica durante el recorrido normal de `.` o de directorios no listados explícitamente). No confundir esto con que el fix no funcionó: el comando documentado en CLAUDE.md es `ruff check .`, y ese es el que importa.
 
-**Cómo aplicar:** no lo trates como bloqueante de DoD (SPEC.md sección 10 no exige explícitamente "ruff limpio" como ítem), pero mencionarlo como deuda técnica en cada revisión hasta que se resuelva (agregar `exclude = ["migrations/"]` a `[tool.ruff]`, o correr `ruff check . --fix` sobre esos archivos). Si se repite sin resolverse en 2+ revisiones, escalarlo a bloqueante.
+**Historial (antes de resolverse):**
+- Revisión Día 1-2 (QA Fase 1 Core): 18 errores.
+- Revisión Fase 2 primera vuelta (2026-08-14): 24 errores — escalado a motivo de rechazo tras persistir 2 revisiones.
+- Re-revisión Fase 2 (2026-08-14, mismo día): resuelto en el turno siguiente de engineer.
+
+**Cómo aplicar en el futuro:** al revisar cualquier fase nueva que agregue una migración de Alembic, correr `ruff check .` (no `ruff check migrations/`) para confirmar que el exclude sigue vigente. Si `pyproject.toml` pierde la línea `exclude = ["migrations/"]` en algún merge/refactor futuro, este problema puede reaparecer — volver a escalar si se repite.

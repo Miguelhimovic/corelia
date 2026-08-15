@@ -1,0 +1,7 @@
+- [Postgres ENUM reuse across tables in Alembic migrations](gotcha_pg_enum_reuse_in_migrations.md) — must use postgresql.ENUM(create_type=False), generic sa.Enum ignores the flag
+- [Local Docker DB env: port 5544, and a stamped-but-empty-DB gotcha](project_env_docker_db_port.md) — verify tables actually exist before trusting alembic_version
+- [Agent engine classifier + shared schema location](project_agent_engine_classifier.md) — ExtractionResult lives in app/agent_engine/schemas.py, reuse it for LLM extraction (Tarea 3)
+- [Agent engine LLM extraction (Tarea 3)](project_agent_engine_llm_extraction.md) — tool-use, dual retry layers, enum sanitization, LLMExtractionFailed for Tarea 5 handoff
+- [Agent engine state machine (Tarea 4)](project_agent_engine_state_machine.md) — StateEvent vs LeadIntent, transition() puro, apply_automatic_transitions, que le falta a Tarea 5
+- [Agent engine orquestador del turno (Tarea 5)](project_agent_engine_orchestrator.md) — process_incoming_message, mapeo intent->evento resuelto, TurnResult.action para Fase 3, no escribe en Lead
+- [QA rechazo DoD Fase 2 — 5 gotchas](gotcha_qa_rechazo_dod_fase2.md) — logging sin configurar, request_id, contratos desviados no reflejados en SPEC.md, comentarios de test obsoletos, ruff sin excluir migrations/
