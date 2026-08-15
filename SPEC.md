@@ -106,12 +106,24 @@ update_lead(lead_id: UUID, fields: dict) -> Lead
 search_database(location: str, budget_max: float, bedrooms: int, purpose: str) -> list[Property]
 # Precondición: los 4 parámetros no-null
 # Validación: budget_max > 0, bedrooms > 0
-# Éxito: retorna hasta 5 propiedades ordenadas por relevancia (match de criterios, luego precio ascendente)
+# Éxito: retorna hasta 5 propiedades que cumplen todos los filtros duros, ordenadas por precio ascendente (ver algoritmo exacto abajo — no hay ranking por "grado de match")
 # Error/vacío: retorna lista vacía (no excepción) — el flujo lo maneja como results_empty
 # Regla dura: el LLM presenta SOLO lo que devuelve esta función. Nunca inventa propiedades.
+#
+# Algoritmo exacto (todos son filtros duros, deben cumplirse TODOS — sin ranking por "grado de match"):
+#   - status == 'available' (excluir propiedades no disponibles)
+#   - location: substring case-insensitive contra city O neighborhood de la propiedad
+#   - price <= budget_max
+#   - bedrooms >= bedrooms solicitado (una propiedad con más habitaciones de las pedidas es válida; con menos, no)
+#   - purpose == purpose solicitado (comparación exacta del enum)
+# Ordenamiento del resultado filtrado: precio ascendente. Retorna hasta 5.
+# Si el filtrado da 0 resultados → lista vacía (no hay segundo intento de "relajar" criterios dentro de la misma
+# llamada; esa relajación ya la maneja el state machine vía PROPERTY_SEARCH → DISCOVERING, sección 2).
 
 handoff_human(lead_id: UUID, reason: str, summary: str) -> HandoffID
-# Efecto secundario: crea HumanHandoff, stage=HANDOFF, dispara notificación (ver sección 7)
+# Efecto secundario: crea HumanHandoff (status='open', assigned_to=NULL — ver sección 5), stage=HANDOFF,
+# dispara notificación (ver sección 7). En MVP la notificación es un log estructurado (nivel WARNING,
+# incluye handoff_id/lead_id/reason) — no hay integración real de email/Slack todavía; eso es Fase 2/3.
 
 get_availability(date_range: tuple[date, date]) -> list[TimeSlot]
 book_meeting(lead_id: UUID, start_datetime: datetime, duration_minutes: int, notes: str | None) -> AppointmentID
@@ -130,7 +142,7 @@ Para el vertical Legal, `search_database` se reemplaza por el contrato de RAG (s
 Tenant (id fijo en MVP)
   ├── Agent (nombre, system_prompt, tools_enabled)
   ├── Lead (nombre, teléfono, email, fuente, canal, intención, presupuesto,
-  │         ubicación, score, stage, último_contacto, próximo_contacto)
+  │         ubicación, bedrooms, purpose, score, stage, último_contacto, próximo_contacto)
   │     ├── Conversation (canal: whatsapp|web, lead_id)
   │     │     ├── Message (conversation_id, role, content, timestamp)
   │     │     └── ConversationState (conversation_id, current_state, last_transition_at,
@@ -140,10 +152,18 @@ Tenant (id fijo en MVP)
   │     └── HumanHandoff (lead_id, reason, summary, assigned_to, status, created_at)
   ├── Property (id, title, property_type, city, neighborhood, price, bedrooms,
   │             bathrooms, area, purpose, status, description, features, images,
-  │             availability) — DEMO DATA en MVP
+  │             availability, is_demo) — DEMO DATA en MVP
   └── KnowledgeDocument (id, filename, uploaded_at, status)
         └── KnowledgeChunk (document_id, chunk_id, page, section, content, embedding)
 ```
+
+**Defaults y nullability aclarados (cerrados aquí porque bloqueaban Fase 3 — tools):**
+- `HumanHandoff.status`: enum `open | resolved`, default `open` al crear vía `handoff_human()`. No hay transición automática a `resolved` en MVP (se actualiza manualmente, fuera del alcance de las tools de esta fase).
+- `HumanHandoff.assigned_to`: nullable, siempre `NULL` en MVP — no existe asignación automática ni manual desde el sistema todavía (Fase 2/3).
+- `ToolExecution`: **diferido explícitamente, no se construye en Fase 3.** A diferencia de `Appointment` (cuyo diferimiento a Fase 5/Calendar es evidente por estar atado a `get_availability`/`book_meeting`/`cancel_meeting`, sección 4), `ToolExecution` no tiene un contrato de tool propio — sería una tabla de auditoría genérica escrita por cada tool, no el resultado de una tool específica. En MVP, el requisito de DoD sección 10 ítem 5 (logs estructurados con `tool`/`tool_result`) ya lo cubre vía `logger.info/warning/error(extra=...)` en las 4 tools de Fase 3 — un log estructurado es suficiente trazabilidad para validar el MVP; la tabla persistida de auditoría se construye si un cliente real la pide (consistente con CLAUDE.md: "no construir todavía" lo que no está validado por demanda real).
+- `Property.is_demo`: booleano, default `True`. Es la convención de marcado de datos demo (sección 13) — un campo explícito, no una convención de naming en `title`.
+- `Lead.stage` y `Lead.score` **no son actualizables vía `update_lead()`** — `stage` cambia solo a través de las transiciones del state machine (sección 2); `score` se recalcula con la fórmula de la sección 1, no se acepta como campo arbitrario en `fields`. `update_lead()` acepta el resto de campos del schema de `Lead` (nombre, teléfono, email, fuente, intención, presupuesto, ubicación, bedrooms, purpose, último_contacto, próximo_contacto) — `bedrooms` y `purpose` son dos de los 4 slots que extrae el LLM (sección 3) y deben poder persistirse igual que `location`/`budget_max`.
+- `create_lead()`: campos no provistos por los parámetros (`nombre`, `email`, `ubicación`, `presupuesto`, `intención`) quedan `NULL`; `último_contacto` se setea al timestamp de creación; `próximo_contacto` queda `NULL`. Validación de `channel` (enum `web|whatsapp`) y `phone` vía Pydantic; entrada inválida levanta error de validación (Pydantic `ValidationError`) sin crear el lead.
 
 ---
 
@@ -271,7 +291,7 @@ Producción: Cloud Run + Cloud SQL + Cloud Storage (documentos) + Secret Manager
 
 ## 13. Demo data
 
-**Real Estate:** 100-500 propiedades ficticias, claramente marcadas como `DEMO DATA` en un campo o convención de naming, para que nunca se confundan con inventario real de un cliente.
+**Real Estate:** 100-500 propiedades ficticias, marcadas con el campo booleano `Property.is_demo=True` (ver sección 5), para que nunca se confundan con inventario real de un cliente. `search_database()` (sección 4) filtra siempre por `status='available'`; el filtro por `is_demo` se aplica a nivel de tenant/seed, no como parámetro de la tool — en MVP con un solo tenant fijo, todo el catálogo sembrado es demo.
 **Legal:** 20-50 documentos de demostración (contratos genéricos no confidenciales), igualmente marcados como demo.
 
 ---

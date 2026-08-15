@@ -60,7 +60,7 @@ Verificados el Día 1 (Windows + PowerShell/Git Bash). Todos se corren desde la 
 - Postgres local (pgvector): `docker compose up -d` → expone el puerto **5544** (5432 y 5433 pueden estar ocupados por instancias nativas de PostgreSQL en esta máquina)
 - Dev server: `uvicorn app.main:app --reload`
 - Migraciones: `alembic upgrade head` (nueva migración: `alembic revision --autogenerate -m "mensaje"`)
-- Tests: `pytest tests/ -q` (requiere Postgres arriba — usan la misma `DATABASE_URL` del `.env`)
+- Tests: `pytest tests/ -q` (requiere Postgres arriba — usan la misma `DATABASE_URL` del `.env`). **Atención:** `tests/conftest.py` corre contra la MISMA base de datos de desarrollo local (no hay DB de test separada en MVP) y hace `Base.metadata.drop_all()`/`create_all()` en cada corrida — esto borra el tenant fijo y cualquier dato sembrado (ej. el catálogo demo de propiedades). Después de correr `pytest`, si necesitas datos de desarrollo, reconstruye con `alembic stamp base && alembic upgrade head` y vuelve a sembrar (`python -m scripts.seed_properties` — con `-m` desde la raíz del repo, no `python scripts/seed_properties.py` directo, que falla con `ModuleNotFoundError`).
 - Lint/format: `ruff check .` + `ruff format .`
 - Healthchecks: `GET /health` (liveness) y `GET /health/db` (valida conexión a Postgres)
 

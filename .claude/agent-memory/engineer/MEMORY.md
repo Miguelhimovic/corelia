@@ -5,3 +5,11 @@
 - [Agent engine state machine (Tarea 4)](project_agent_engine_state_machine.md) — StateEvent vs LeadIntent, transition() puro, apply_automatic_transitions, que le falta a Tarea 5
 - [Agent engine orquestador del turno (Tarea 5)](project_agent_engine_orchestrator.md) — process_incoming_message, mapeo intent->evento resuelto, TurnResult.action para Fase 3, no escribe en Lead
 - [QA rechazo DoD Fase 2 — 5 gotchas](gotcha_qa_rechazo_dod_fase2.md) — logging sin configurar, request_id, contratos desviados no reflejados en SPEC.md, comentarios de test obsoletos, ruff sin excluir migrations/
+- [Fase 3 Tarea 1 — modelos Property y HumanHandoff](project_fase3_property_handoff_models.md) — reuso de enum lead_purpose (gotcha otra vez), enums nuevos, ruff format . reformateando archivos fuera de scope
+- [Fase 3 Tarea 2 — seed de Property](project_fase3_seed_properties.md) — scripts/seed_properties.py, delete-then-reinsert, PYTHONPATH=. requerido
+- [pytest borra las tablas de la DB local](gotcha_pytest_drops_dev_db_tables.md) — tests/conftest.py hace drop_all contra la misma DATABASE_URL del .env; sembrar/verificar SIEMPRE despues de correr pytest, no antes
+- [Fase 3 Tarea 3 — tools create_lead/update_lead](project_fase3_tools_create_update_lead.md) — CreateLeadResult amplia el contrato, UpdateLeadFields extra=forbid rechaza stage/score, bedrooms/purpose SI son editables
+- [Fase 3 Tarea 4 — tool search_database](project_fase3_search_database.md) — filtros duros via SQLAlchemy select().where(), tenant_id fijo sin filtrar is_demo aparte, PropertySearchError
+- [Fase 3 Tarea 5 — tool handoff_human](project_fase3_handoff_human.md) — unica tool que escribe Lead.stage directo, log de exito en WARNING (notificacion MVP), summary nunca se loguea
+- [Fase 3 Tarea 6 — handle_message() conecta las tools](project_fase3_handle_message_connector.md) — ExecutedTurnResult.final_state != turn.new_state, gap de reachability de empty_search_count en state_machine.py sin corregir (requiere QA)
+- [Fix post-QA: reset de empty_search_count por cambio de criterio](project_fase3_empty_search_criteria_reset_fix.md) — transition() ya no resetea en ENOUGH_DATA, orquestador compara Lead pre-update vs merged_entities

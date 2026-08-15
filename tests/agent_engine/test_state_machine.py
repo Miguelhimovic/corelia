@@ -67,9 +67,16 @@ def test_t2_discovering_to_qualifying_on_enough_data() -> None:
     assert result.changed_state is True
 
 
-def test_t2_enough_data_resets_empty_search_count() -> None:
+def test_t2_enough_data_does_not_reset_empty_search_count() -> None:
+    """Corregido tras QA (SPEC.md seccion 1): `transition()` es pura y no
+    conoce si el usuario cambio de criterio de busqueda -- `ENOUGH_DATA` por
+    si solo deja pasar `empty_search_count` sin tocarlo. El reset por "cambio
+    de criterio" lo decide el orquestador (`app/agent_engine/orchestrator.py`,
+    `_run_property_search`/`criteria_changed`), que si tiene visibilidad de
+    los slots previamente persistidos -- ver
+    `tests/agent_engine/test_handle_message.py` para esa capa."""
     result = transition(LeadStage.DISCOVERING, StateEvent.ENOUGH_DATA, empty_search_count=1)
-    assert result.empty_search_count == 0
+    assert result.empty_search_count == 1
 
 
 def test_t3_discovering_to_handoff_on_human_request() -> None:

@@ -78,12 +78,25 @@ class TransitionResult:
     estado (SPEC.md seccion 1); si el evento no produce cambio de estado
     (un `no_response` que todavia no llega al umbral) el contador queda
     incrementado. `empty_search_count` sigue la misma logica para
-    `results_empty`, y ademas se resetea al recibir `enough_data` o
-    `results_found` — se interpreta como el fin de un intento de busqueda
-    (SPEC.md seccion 1: "resetea a 0 cuando el usuario cambia cualquiera
-    de los 4 criterios de busqueda"; el punto en que la state machine
-    puede observar eso, sin conocer las entities, es cuando el
-    orquestador confirma que los 4 slots vuelven a estar completos).
+    `results_empty`, y ademas se resetea al recibir `results_found` — una
+    busqueda exitosa cierra el intento sin ambiguedad.
+
+    IMPORTANTE (corregido tras QA, SPEC.md seccion 1): `enough_data` NO
+    resetea `empty_search_count` por si solo. Esta funcion es pura y no
+    conoce los criterios de busqueda anteriores (location/budget_max/
+    bedrooms/purpose) — no puede distinguir "el usuario cambio un criterio"
+    de "el usuario repitio exactamente los mismos 4 slots" solo con el
+    evento `ENOUGH_DATA`, y cada reintento de busqueda pasa SIEMPRE por
+    `DISCOVERING -> QUALIFYING` via `ENOUGH_DATA` (los 4 slots estan
+    completos de nuevo aunque no hayan cambiado). Resetear aqui en cada
+    `ENOUGH_DATA` hacia que la rama "2 busquedas vacias seguidas ->
+    HANDOFF" (seccion 2) fuera inalcanzable desde una conversacion real. La
+    decision de si el reset por "cambio de criterio" aplica es del
+    orquestador (`app/agent_engine/orchestrator.py`, `_run_property_search`),
+    que SI tiene visibilidad de los slots previamente persistidos en el
+    `Lead` — el llamador pasa `empty_search_count=0` como argumento de
+    entrada a `transition()` cuando corresponde, en vez de que esta funcion
+    lo decida por dentro.
 
     `changed_state`: True si `new_state != current_state` recibido por
     `transition()` — util para que el orquestador sepa si debe persistir
@@ -141,7 +154,9 @@ _NO_RESPONSE_STATES = frozenset(
 
 # Eventos que cierran (con exito) un intento de busqueda y por lo tanto
 # rompen la racha de `empty_search_count` (ver docstring de TransitionResult).
-_EMPTY_SEARCH_RESET_EVENTS = frozenset({StateEvent.ENOUGH_DATA, StateEvent.RESULTS_FOUND})
+# `ENOUGH_DATA` deliberadamente NO esta aqui — ver el docstring de
+# `TransitionResult` para el porque (corregido tras QA, SPEC.md seccion 1).
+_EMPTY_SEARCH_RESET_EVENTS = frozenset({StateEvent.RESULTS_FOUND})
 
 
 def transition(

@@ -2,4 +2,7 @@
 - [Doc drift en cambios de infraestructura](feedback_doc_drift_en_cambios_infra.md) — patrón de rechazo: código/comentarios bien hechos pero CLAUDE.md no se actualiza (DoD item 8)
 - [ruff no excluye migrations/](project_ruff_migrations_excluded.md) — RESUELTO 2026-08-14; vigilar que no regrese si pyproject.toml pierde el exclude
 - [extra= en logging sin config global es invisible](feedback_logging_extra_sin_config_es_invisible.md) — verificar SIEMPRE con una llamada real, no solo leer el código, al chequear DoD ítem 5
-- [Ambigüedades resueltas en código no vuelven a SPEC.md](feedback_ambiguedades_resueltas_en_codigo_no_vuelven_a_spec.md) — comparar docstrings entre módulos relacionados, buscar contradicciones
+- [Ambigüedades resueltas en código no vuelven a SPEC.md](feedback_ambiguedades_resueltas_en_codigo_no_vuelven_a_spec.md) — comparar docstrings/listas de campos entre módulos y SPEC.md línea por línea (3 instancias, patrón confirmado, siempre se corrige si se señala con precisión)
+- [empty_search_count nunca llega a 2 vía conversación real](project_empty_search_handoff_unreachable.md) — RESUELTO 2026-08-14 (Fase 3, 2da pasada); ver memoria para el fix exacto si un patrón similar reaparece
+- [Modelo ToolExecution de SPEC.md nunca se construyó](project_tool_execution_model_missing.md) — ABIERTO, detectado en cierre de sesión Fase 3 2026-08-14; no bloquea (logs cubren DoD ítem 5) pero revisar en próxima fase que toque app/tools o el modelo de datos
+- [scripts/seed_properties.py: comando documentado no corre tal cual](project_seed_script_pythonpath.md) — necesita `python -m scripts.seed_properties` o `PYTHONPATH=.`; probar SIEMPRE el comando exacto documentado, no una variante

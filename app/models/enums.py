@@ -46,3 +46,22 @@ class MessageRole(enum.StrEnum):
     ASSISTANT = "assistant"
     SYSTEM = "system"
     TOOL = "tool"
+
+
+class PropertyStatus(enum.StrEnum):
+    """Estado comercial del inmueble en el catalogo. SPEC.md seccion 5 lista
+    el campo `status` sin un dominio cerrado explicito -- se definen los
+    valores minimos razonables para un catalogo de demo/venta."""
+
+    AVAILABLE = "available"
+    RESERVED = "reserved"
+    SOLD = "sold"
+    RENTED = "rented"
+    INACTIVE = "inactive"
+
+
+class HandoffStatus(enum.StrEnum):
+    """SPEC.md seccion 5: HumanHandoff.status, default `open`."""
+
+    OPEN = "open"
+    RESOLVED = "resolved"
