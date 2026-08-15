@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     app_name: str = "CorelIA API"
     environment: str = "local"
-    database_url: str = "postgresql+psycopg2://corelia:corelia@localhost:5433/corelia"
+    database_url: str = "postgresql+psycopg2://corelia:corelia@localhost:5544/corelia"
     anthropic_api_key: str | None = None
 
 

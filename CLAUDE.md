@@ -57,14 +57,14 @@ Verificados el Día 1 (Windows + PowerShell/Git Bash). Todos se corren desde la 
 - Entorno: `python -m venv .venv` luego `.venv\Scripts\activate` (PowerShell) o `source .venv/Scripts/activate` (Git Bash)
 - Instalar dependencias: `pip install -r requirements-dev.txt` (incluye `requirements.txt` + pytest/httpx/ruff)
 - Config local: copiar `.env.example` a `.env` y completar `DATABASE_URL` / `ANTHROPIC_API_KEY`
-- Postgres local (pgvector): `docker compose up -d` → expone el puerto **5433** (el 5432 puede estar ocupado por una instancia nativa)
+- Postgres local (pgvector): `docker compose up -d` → expone el puerto **5544** (5432 y 5433 pueden estar ocupados por instancias nativas de PostgreSQL en esta máquina)
 - Dev server: `uvicorn app.main:app --reload`
 - Migraciones: `alembic upgrade head` (nueva migración: `alembic revision --autogenerate -m "mensaje"`)
 - Tests: `pytest tests/ -q` (requiere Postgres arriba — usan la misma `DATABASE_URL` del `.env`)
 - Lint/format: `ruff check .` + `ruff format .`
 - Healthchecks: `GET /health` (liveness) y `GET /health/db` (valida conexión a Postgres)
 
-**Nota Día 1:** en esta máquina Docker Desktop no arrancó (`Docker Desktop is unable to start`). Se usó temporalmente el PostgreSQL nativo del sistema en el puerto 5432 (ver comentario en `.env`) para no bloquear el sprint. Ese Postgres nativo **no tiene la extensión `pgvector` instalada** — sirve para Fases 1-3, pero antes de Fase 4 (RAG) hay que resolver Docker Desktop y volver a `docker-compose.yml` (puerto 5433), o instalar la extensión `vector` manualmente en el Postgres nativo.
+**Nota Día 2 (resuelto):** Docker Desktop volvió a funcionar y se migró de vuelta del Postgres nativo (workaround temporal del Día 1) a `docker-compose.yml`. Se detectó que esta máquina tiene DOS instancias nativas de PostgreSQL (`postgresql-x64-17` y `postgresql-x64-18`) que entre ambas ocupan los puertos 5432 y 5433 sin dar error de "puerto en uso" — causaba fallos intermitentes de autenticación. Se remapeó el puerto de host del contenedor a **5544** (ver `docker-compose.yml` y `.env.example`). La extensión `pgvector` ya está en la migración inicial (`CREATE EXTENSION IF NOT EXISTS vector`), no requiere instalación manual.
 
 ## Modelo de datos (Fase 1)
 

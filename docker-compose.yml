@@ -6,9 +6,14 @@ services:
       POSTGRES_PASSWORD: corelia
       POSTGRES_DB: corelia
     ports:
-      # 5433 en el host: en esta maquina el 5432 ya esta ocupado por un
-      # PostgreSQL nativo. Ajustar DATABASE_URL en .env si se cambia este puerto.
-      - "5433:5432"
+      # 5544 en el host: esta maquina tiene VARIOS PostgreSQL nativos
+      # instalados (servicios postgresql-x64-17 y postgresql-x64-18) que
+      # entre los dos ya ocupan 5432 Y 5433 -- se descubrio el Dia 2 porque
+      # alembic/psql fallaban con "password authentication failed" de forma
+      # intermitente al pegarle a :5433 (dos procesos distintos escuchando
+      # el mismo puerto en Windows). Ajustar DATABASE_URL en .env si se
+      # cambia este puerto.
+      - "5544:5432"
     volumes:
       - corelia_pgdata:/var/lib/postgresql/data
     healthcheck:

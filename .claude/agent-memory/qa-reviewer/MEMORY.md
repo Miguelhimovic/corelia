@@ -1,0 +1,3 @@
+- [Conflicto de puertos Postgres en esta máquina](project_port_conflict.md) — dos Postgres nativos ocupan 5432 y 5433, compose usa 5544; verificar 4 lugares al cambiar puertos
+- [Doc drift en cambios de infraestructura](feedback_doc_drift_en_cambios_infra.md) — patrón de rechazo: código/comentarios bien hechos pero CLAUDE.md no se actualiza (DoD item 8)
+- [ruff no excluye migrations/](project_ruff_migrations_excluded.md) — 18 errores preexistentes desde Día 1 en migrations/, no bloqueado por CI (no bloqueante de DoD, pero mencionar cada vez)
